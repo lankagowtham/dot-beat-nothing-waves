@@ -62,7 +62,7 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // High-resolution rendering
+    // Set up high resolution rendering
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     
@@ -80,11 +80,19 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     
-    // Improved dot matrix configuration for better resolution
-    const dotSize = Math.max(2, Math.floor(rect.width / 100)); // Adaptive dot size
-    const dotSpacing = dotSize * 2; // Proper spacing between dots
-    const columns = Math.floor(rect.width / dotSpacing);
-    const rows = Math.floor(rect.height / dotSpacing);
+    // Dynamic dot configuration based on canvas size
+    // Calculate optimal dot count based on available space
+    const targetColumnCount = Math.floor(Math.sqrt(rect.width * 0.5));
+    const targetRowCount = Math.floor(Math.sqrt(rect.height * 0.5));
+    
+    // Ensure we have at least 10 dots in each dimension for small screens
+    const columns = Math.max(10, targetColumnCount);
+    const rows = Math.max(10, targetRowCount);
+    
+    // Calculate dot size and spacing to fill the canvas completely
+    const dotSpacingX = rect.width / columns;
+    const dotSpacingY = rect.height / rows;
+    const dotSize = Math.min(dotSpacingX, dotSpacingY) * 0.8; // 80% of spacing for nice visual density
     
     // Anime.js animation for play state change
     if (isPlaying) {
@@ -123,8 +131,8 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
         // Draw static dot matrix when not playing with improved alignment
         for (let i = 0; i < columns; i++) {
           for (let j = 0; j < rows; j++) {
-            const x = i * dotSpacing + dotSpacing / 2;
-            const y = j * dotSpacing + dotSpacing / 2;
+            const x = i * dotSpacingX + dotSpacingX / 2;
+            const y = j * dotSpacingY + dotSpacingY / 2;
             
             ctx.beginPath();
             ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2);
@@ -145,8 +153,8 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
         const activeDots = Math.floor((value / 255) * rows);
         
         for (let j = 0; j < rows; j++) {
-            const x = i * dotSpacing + dotSpacing / 2;
-            const y = j * dotSpacing + dotSpacing / 2;
+          const x = i * dotSpacingX + dotSpacingX / 2;
+          const y = j * dotSpacingY + dotSpacingY / 2;
           
           // Check if this dot should be lit
           let opacity = 0.15;
@@ -185,7 +193,7 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     >
       <canvas 
         ref={canvasRef} 
-        className="w-full h-full rounded-lg"
+        className="w-full h-full rounded-lg dot-matrix"
       />
     </div>
   );

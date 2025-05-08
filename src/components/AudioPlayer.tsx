@@ -198,6 +198,11 @@ const AudioPlayer: React.FC = () => {
       URL.revokeObjectURL(audioSrc);
     }
     
+    // If audioRef.current has srcObject, remove it
+    if (audioRef.current && audioRef.current.srcObject) {
+      audioRef.current.srcObject = null;
+    }
+    
     const objectUrl = URL.createObjectURL(file);
     setAudioSrc(objectUrl);
     
@@ -267,29 +272,15 @@ const AudioPlayer: React.FC = () => {
     if (stream) {
       mediaStreamRef.current = stream;
       
-      // Create a new audio context for the captured stream
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
+      // Revoke previous object URL if exists
+      if (audioSrc && audioSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(audioSrc);
+        setAudioSrc(null); // Clear the audio source URL
+      }
       
-      // Create a destination node (a MediaStreamAudioDestinationNode)
-      const destination = audioContext.createMediaStreamDestination();
-      source.connect(destination);
-      
-      // Use the destination stream with the audio element
       if (audioRef.current) {
-        // Revoke previous object URL if exists
-        if (audioSrc && audioSrc.startsWith('blob:')) {
-          URL.revokeObjectURL(audioSrc);
-        }
-        
-        // Set source directly to the stream to avoid encoding issues
-        try {
-          audioRef.current.srcObject = stream;
-        } catch (err) {
-          // Fallback for browsers that don't support srcObject
-          const newSrc = URL.createObjectURL(stream);
-          setAudioSrc(newSrc);
-        }
+        // Use srcObject instead of src for MediaStream
+        audioRef.current.srcObject = stream;
         
         // Start playing the captured audio
         setIsPlaying(true);
