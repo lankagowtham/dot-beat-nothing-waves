@@ -47,7 +47,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload }) => {
       />
       <Button 
         variant="outline" 
-        className="glass-morph flex items-center gap-2 text-white hover:bg-white/10"
+        className="bg-zinc-900 border-zinc-700 flex items-center gap-2 text-white hover:bg-zinc-800"
         onClick={handleButtonClick}
       >
         <UploadIcon size={16} />

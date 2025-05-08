@@ -77,7 +77,7 @@ const AudioControls: React.FC<AudioControlsProps> = ({
   };
   
   return (
-    <div className="glass-morph p-4 rounded-lg w-full max-w-xl mx-auto">
+    <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg w-full max-w-xl mx-auto">
       {/* Progress bar */}
       <div className="mb-4">
         <Slider
@@ -134,7 +134,7 @@ const AudioControls: React.FC<AudioControlsProps> = ({
           <Button
             variant="outline"
             size="icon"
-            className="rounded-full w-12 h-12 bg-visualizer-accent/20 border-visualizer-accent hover:bg-visualizer-accent/30 text-white"
+            className="rounded-full w-12 h-12 bg-white/5 border-white/20 hover:bg-white/10 text-white"
             onClick={onPlayPause}
           >
             {isPlaying ? <Pause size={24} /> : <Play size={24} />}

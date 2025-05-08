@@ -4,12 +4,17 @@ import DotMatrixVisualizer from './DotMatrixVisualizer';
 import AudioControls from './AudioControls';
 import FileUploader from './FileUploader';
 import { toast } from 'sonner';
+import useBackgroundAudio from '@/hooks/useBackgroundAudio';
+import { Button } from './ui/button';
+import { Headphones } from 'lucide-react';
 
 const AudioPlayer: React.FC = () => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [trackInfo, setTrackInfo] = useState({ title: '', artist: '' });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { isAvailable, captureBackgroundAudio, mediaInfo } = useBackgroundAudio();
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     // Initialize audio element
@@ -33,6 +38,11 @@ const AudioPlayer: React.FC = () => {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
+      
+      // Clean up media stream if it exists
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
 
@@ -52,6 +62,16 @@ const AudioPlayer: React.FC = () => {
     }
   }, [audioSrc, isPlaying]);
 
+  useEffect(() => {
+    // Update track info if media session info becomes available
+    if (mediaInfo.title) {
+      setTrackInfo({
+        title: mediaInfo.title || 'Unknown Title',
+        artist: mediaInfo.artist || 'Unknown Artist'
+      });
+    }
+  }, [mediaInfo]);
+
   const handlePlayPause = () => {
     if (!audioRef.current) return;
     
@@ -59,8 +79,8 @@ const AudioPlayer: React.FC = () => {
       audioRef.current.pause();
     } else {
       // If we don't have a source yet, don't try to play
-      if (!audioSrc) {
-        toast.info('Please upload an audio file first');
+      if (!audioSrc && !mediaStreamRef.current) {
+        toast.info('Please upload an audio file or capture background audio first');
         return;
       }
       
@@ -88,6 +108,12 @@ const AudioPlayer: React.FC = () => {
   };
 
   const handleFileUpload = (file: File) => {
+    // Stop any existing media stream
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    
     // Revoke previous object URL to prevent memory leaks
     if (audioSrc && audioSrc.startsWith('blob:')) {
       URL.revokeObjectURL(audioSrc);
@@ -115,6 +141,52 @@ const AudioPlayer: React.FC = () => {
     
     // Start playing when file is uploaded
     setIsPlaying(true);
+  };
+
+  const handleCaptureBackgroundAudio = async () => {
+    // Stop previous streams if any
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    // Capture new stream
+    const stream = await captureBackgroundAudio();
+    
+    if (stream) {
+      mediaStreamRef.current = stream;
+      
+      // Create a new audio context for the captured stream
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      // Create a destination node (a MediaStreamAudioDestinationNode)
+      const destination = audioContext.createMediaStreamDestination();
+      source.connect(destination);
+      
+      // Use the destination stream with the audio element
+      if (audioRef.current) {
+        // Revoke previous object URL if exists
+        if (audioSrc && audioSrc.startsWith('blob:')) {
+          URL.revokeObjectURL(audioSrc);
+        }
+        
+        // Create a new MediaStream with the audio track
+        const newStream = new MediaStream(destination.stream.getAudioTracks());
+        const newSrc = URL.createObjectURL(newStream);
+        setAudioSrc(newSrc);
+        
+        // Start playing the captured audio
+        setIsPlaying(true);
+      }
+      
+      // Set default track info if not available from media session
+      if (!mediaInfo.title) {
+        setTrackInfo({
+          title: 'Background Audio',
+          artist: 'System'
+        });
+      }
+    }
   };
 
   return (
@@ -153,9 +225,20 @@ const AudioPlayer: React.FC = () => {
         />
       </div>
       
-      {/* File uploader */}
-      <div className="flex justify-center mb-8">
+      {/* File uploader and background audio capture */}
+      <div className="flex justify-center gap-4 mb-8">
         <FileUploader onFileUpload={handleFileUpload} />
+        
+        {isAvailable && (
+          <Button 
+            variant="outline" 
+            className="glass-morph flex items-center gap-2 text-white hover:bg-white/10"
+            onClick={handleCaptureBackgroundAudio}
+          >
+            <Headphones size={16} />
+            Capture Audio
+          </Button>
+        )}
       </div>
     </div>
   );

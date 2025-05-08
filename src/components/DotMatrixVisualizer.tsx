@@ -67,11 +67,12 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
       
       analyser.getByteFrequencyData(dataArray);
       
-      // Clear the canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Clear the canvas with a very dark background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       if (!isPlaying) {
-        // Draw static dot matrix when not playing
+        // Draw static dot matrix when not playing - pure white dots at low opacity
         for (let i = 0; i < columns; i++) {
           for (let j = 0; j < rows; j++) {
             const x = i * dotSpacing;
@@ -79,14 +80,14 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
             
             ctx.beginPath();
             ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(142, 145, 150, 0.3)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
             ctx.fill();
           }
         }
         return;
       }
       
-      // Draw the active visualization
+      // Draw the active visualization with black and white theme
       for (let i = 0; i < columns; i++) {
         // Map the column to a frequency bin
         const index = Math.floor(i * bufferLength / columns);
@@ -100,20 +101,14 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
           const y = j * dotSpacing;
           
           // Check if this dot should be lit
-          let opacity = 0.3;
-          let color = '#8E9196';
+          let opacity = 0.15;
+          let color = '#FFFFFF'; // White color for all dots
           
           // Bottom to top visualization
           const invertedJ = rows - j - 1;
           if (invertedJ < activeDots) {
-            opacity = 0.7 + (invertedJ / rows) * 0.3;
-            
-            // Change color based on frequency intensity
-            if (invertedJ < activeDots * 0.2) {
-              color = '#0FA0CE'; // Top dots are accent color
-            } else if (invertedJ < activeDots * 0.5) {
-              color = '#AAADB0'; // Middle dots are brighter
-            }
+            // Intensity based on frequency value
+            opacity = 0.5 + (invertedJ / rows) * 0.5;
           }
           
           ctx.beginPath();
@@ -137,7 +132,7 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
   }, [dimensions, audioElement, isPlaying]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center bg-black rounded-lg">
       <canvas 
         ref={canvasRef} 
         className="w-full h-full rounded-lg"
