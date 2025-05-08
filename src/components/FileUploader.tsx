@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { UploadIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import anime from 'animejs';
 
 interface FileUploaderProps {
   onFileUpload: (file: File) => void;
@@ -10,8 +11,17 @@ interface FileUploaderProps {
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleButtonClick = () => {
+    // Add click animation
+    anime({
+      targets: buttonRef.current,
+      scale: [1, 1.05, 1],
+      duration: 300,
+      easing: 'easeInOutQuad'
+    });
+    
     inputRef.current?.click();
   };
 
@@ -46,6 +56,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload }) => {
         data-testid="file-input"
       />
       <Button 
+        ref={buttonRef}
         variant="outline" 
         className="bg-zinc-900 border-zinc-700 flex items-center gap-2 text-white hover:bg-zinc-800"
         onClick={handleButtonClick}

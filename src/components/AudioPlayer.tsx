@@ -6,14 +6,27 @@ import FileUploader from './FileUploader';
 import { toast } from 'sonner';
 import useBackgroundAudio from '@/hooks/useBackgroundAudio';
 import { Button } from './ui/button';
-import { Headphones } from 'lucide-react';
+import { Headphones, Mic } from 'lucide-react';
+import anime from 'animejs';
 
 const AudioPlayer: React.FC = () => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [trackInfo, setTrackInfo] = useState({ title: '', artist: '' });
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { isAvailable, captureBackgroundAudio, mediaInfo } = useBackgroundAudio();
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const visualizerRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  
+  const { 
+    isAvailable, 
+    captureBackgroundAudio, 
+    mediaInfo, 
+    permissionStatus,
+    requestPermission 
+  } = useBackgroundAudio();
+  
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -46,6 +59,40 @@ const AudioPlayer: React.FC = () => {
     };
   }, []);
 
+  // Initial entrance animation
+  useEffect(() => {
+    if (playerContainerRef.current) {
+      anime({
+        targets: playerContainerRef.current,
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 800,
+        easing: 'easeOutCubic'
+      });
+    }
+    
+    if (visualizerRef.current) {
+      anime({
+        targets: visualizerRef.current,
+        scale: [0.95, 1],
+        opacity: [0, 1],
+        duration: 1000,
+        delay: 300,
+        easing: 'easeOutElastic(1, .6)'
+      });
+    }
+    
+    if (controlsRef.current) {
+      anime({
+        targets: controlsRef.current.children,
+        opacity: [0, 1],
+        translateY: [10, 0],
+        delay: anime.stagger(100, {start: 600}),
+        easing: 'easeOutSine'
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (audioRef.current && audioSrc) {
       audioRef.current.src = audioSrc;
@@ -75,6 +122,14 @@ const AudioPlayer: React.FC = () => {
   const handlePlayPause = () => {
     if (!audioRef.current) return;
     
+    // Add button animation
+    anime({
+      targets: '.play-pause-button',
+      scale: [1, 1.2, 1],
+      duration: 400,
+      easing: 'easeInOutSine'
+    });
+    
     if (isPlaying) {
       audioRef.current.pause();
     } else {
@@ -97,6 +152,14 @@ const AudioPlayer: React.FC = () => {
   const handleSkipBackward = () => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10);
+    
+    // Skip button animation
+    anime({
+      targets: '.skip-back-button',
+      translateX: [-5, 0],
+      duration: 200,
+      easing: 'easeOutQuad'
+    });
   };
 
   const handleSkipForward = () => {
@@ -105,9 +168,25 @@ const AudioPlayer: React.FC = () => {
       audioRef.current.duration || 0,
       audioRef.current.currentTime + 10
     );
+    
+    // Skip button animation
+    anime({
+      targets: '.skip-forward-button',
+      translateX: [5, 0],
+      duration: 200,
+      easing: 'easeOutQuad'
+    });
   };
 
   const handleFileUpload = (file: File) => {
+    // Animate file upload button
+    anime({
+      targets: '.upload-button',
+      backgroundColor: ['rgba(255, 255, 255, 0.2)', 'rgba(0, 0, 0, 0.5)', 'rgba(255, 255, 255, 0)'],
+      duration: 800,
+      easing: 'easeOutQuad'
+    });
+    
     // Stop any existing media stream
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -141,9 +220,37 @@ const AudioPlayer: React.FC = () => {
     
     // Start playing when file is uploaded
     setIsPlaying(true);
+    
+    // Animate track info
+    anime({
+      targets: '.track-info',
+      translateY: [10, 0],
+      opacity: [0, 1],
+      duration: 600,
+      easing: 'easeOutQuad'
+    });
   };
 
   const handleCaptureBackgroundAudio = async () => {
+    // Animate capture button
+    anime({
+      targets: '.capture-button',
+      scale: [1, 1.1, 1],
+      duration: 400,
+      easing: 'easeInOutBack'
+    });
+    
+    // Check permission status first
+    if (permissionStatus === 'prompt' || permissionStatus === 'unknown') {
+      setShowPermissionPrompt(true);
+      return;
+    }
+    
+    if (permissionStatus === 'denied') {
+      toast.error("Microphone permission is required to capture audio");
+      return;
+    }
+    
     // Stop previous streams if any
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -172,11 +279,29 @@ const AudioPlayer: React.FC = () => {
         
         // Create a new MediaStream with the audio track
         const newStream = new MediaStream(destination.stream.getAudioTracks());
-        const newSrc = URL.createObjectURL(newStream);
-        setAudioSrc(newSrc);
         
-        // Start playing the captured audio
-        setIsPlaying(true);
+        // Create a Blob from the MediaStream that can be used with audio element
+        const mediaRecorder = new MediaRecorder(newStream);
+        const chunks: BlobPart[] = [];
+        
+        mediaRecorder.ondataavailable = (e) => {
+          chunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const newSrc = URL.createObjectURL(blob);
+          setAudioSrc(newSrc);
+          
+          // Start playing the captured audio
+          setIsPlaying(true);
+        };
+        
+        // Start recording for a brief moment to get initial data
+        mediaRecorder.start();
+        setTimeout(() => {
+          mediaRecorder.stop();
+        }, 100);
       }
       
       // Set default track info if not available from media session
@@ -185,19 +310,68 @@ const AudioPlayer: React.FC = () => {
           title: 'Background Audio',
           artist: 'System'
         });
+        
+        // Animate track info
+        anime({
+          targets: '.track-info',
+          translateY: [10, 0],
+          opacity: [0, 1],
+          duration: 600,
+          easing: 'easeOutQuad'
+        });
+      }
+    }
+  };
+
+  const handlePermissionResponse = async (granted: boolean) => {
+    setShowPermissionPrompt(false);
+    
+    if (granted) {
+      const success = await requestPermission();
+      if (success) {
+        // Wait a brief moment before trying to capture audio
+        setTimeout(() => {
+          handleCaptureBackgroundAudio();
+        }, 500);
       }
     }
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full" ref={playerContainerRef}>
+      {/* Permission prompt modal */}
+      {showPermissionPrompt && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-lg max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-2">Microphone Permission Required</h3>
+            <p className="text-gray-300 mb-4">
+              To capture background audio, we need permission to access your microphone.
+              Your privacy is important - audio is processed locally and not sent to any server.
+            </p>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button 
+                variant="outline"
+                onClick={() => handlePermissionResponse(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => handlePermissionResponse(true)}
+              >
+                Allow Microphone
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Visualizer area */}
-      <div className="flex-1 mb-4">
+      <div className="flex-1 mb-4" ref={visualizerRef}>
         <DotMatrixVisualizer audioElement={audioRef.current} isPlaying={isPlaying} />
       </div>
       
       {/* Track info */}
-      <div className="mb-4 text-center">
+      <div className="mb-4 text-center track-info">
         {trackInfo.title ? (
           <>
             <h2 className="text-xl font-medium text-white truncate">
@@ -215,7 +389,7 @@ const AudioPlayer: React.FC = () => {
       </div>
       
       {/* Audio controls */}
-      <div className="mb-6">
+      <div className="mb-6" ref={controlsRef}>
         <AudioControls
           audioElement={audioRef.current}
           isPlaying={isPlaying}
@@ -227,12 +401,14 @@ const AudioPlayer: React.FC = () => {
       
       {/* File uploader and background audio capture */}
       <div className="flex justify-center gap-4 mb-8">
-        <FileUploader onFileUpload={handleFileUpload} />
+        <div className="upload-button">
+          <FileUploader onFileUpload={handleFileUpload} />
+        </div>
         
         {isAvailable && (
           <Button 
             variant="outline" 
-            className="glass-morph flex items-center gap-2 text-white hover:bg-white/10"
+            className="capture-button bg-zinc-900 border-zinc-700 flex items-center gap-2 text-white hover:bg-zinc-800"
             onClick={handleCaptureBackgroundAudio}
           >
             <Headphones size={16} />

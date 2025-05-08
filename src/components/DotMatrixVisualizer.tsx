@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import audioContext from '@/lib/audio-context';
+import anime from 'animejs';
 
 interface DotMatrixVisualizerProps {
   audioElement: HTMLAudioElement | null;
@@ -9,6 +10,7 @@ interface DotMatrixVisualizerProps {
 
 const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement, isPlaying }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const animationRef = useRef<number | null>(null);
 
@@ -27,6 +29,17 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
 
     if (canvasRef.current) {
       resizeObserver.observe(canvasRef.current);
+    }
+
+    // Initial animation for the container
+    if (containerRef.current) {
+      anime({
+        targets: containerRef.current,
+        opacity: [0, 1],
+        scale: [0.98, 1],
+        duration: 800,
+        easing: 'easeOutQuad'
+      });
     }
 
     return () => {
@@ -60,6 +73,29 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     const dotSpacing = 8;
     const columns = Math.floor(canvas.width / dotSpacing);
     const rows = Math.floor(canvas.height / dotSpacing);
+    
+    // Anime.js animation for play state change
+    if (isPlaying) {
+      anime({
+        targets: canvas,
+        brightness: [0.8, 1],
+        easing: 'easeOutSine',
+        duration: 600,
+        update: function(anim) {
+          // This is just to trigger the animation, the actual change happens in CSS
+        }
+      });
+    } else {
+      anime({
+        targets: canvas,
+        brightness: [1, 0.8],
+        easing: 'easeOutSine',
+        duration: 600,
+        update: function(anim) {
+          // This is just to trigger the animation, the actual change happens in CSS
+        }
+      });
+    }
     
     // Animation function for drawing the visualizer
     const draw = () => {
@@ -132,7 +168,10 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
   }, [dimensions, audioElement, isPlaying]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-black rounded-lg">
+    <div 
+      ref={containerRef}
+      className="w-full h-full flex items-center justify-center bg-black rounded-lg overflow-hidden transition-all"
+    >
       <canvas 
         ref={canvasRef} 
         className="w-full h-full rounded-lg"
