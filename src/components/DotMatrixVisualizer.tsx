@@ -27,8 +27,8 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
       }
     });
 
-    if (canvasRef.current) {
-      resizeObserver.observe(canvasRef.current);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
 
     // Initial animation for the container
@@ -43,8 +43,8 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     }
 
     return () => {
-      if (canvasRef.current) {
-        resizeObserver.unobserve(canvasRef.current);
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
       }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
@@ -62,17 +62,29 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions
-    canvas.width = dimensions.width;
-    canvas.height = dimensions.height;
+    // High-resolution rendering
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Set physical size to match display size * device pixel ratio
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    
+    // Scale the context to ensure correct drawing
+    ctx.scale(dpr, dpr);
+    
+    // Set display size (CSS pixels)
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
     
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     
-    const dotSize = 4;
-    const dotSpacing = 8;
-    const columns = Math.floor(canvas.width / dotSpacing);
-    const rows = Math.floor(canvas.height / dotSpacing);
+    // Improved dot matrix configuration for better resolution
+    const dotSize = Math.max(2, Math.floor(rect.width / 100)); // Adaptive dot size
+    const dotSpacing = dotSize * 2; // Proper spacing between dots
+    const columns = Math.floor(rect.width / dotSpacing);
+    const rows = Math.floor(rect.height / dotSpacing);
     
     // Anime.js animation for play state change
     if (isPlaying) {
@@ -105,14 +117,14 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
       
       // Clear the canvas with a very dark background
       ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, rect.width, rect.height);
       
       if (!isPlaying) {
-        // Draw static dot matrix when not playing - pure white dots at low opacity
+        // Draw static dot matrix when not playing with improved alignment
         for (let i = 0; i < columns; i++) {
           for (let j = 0; j < rows; j++) {
-            const x = i * dotSpacing;
-            const y = j * dotSpacing;
+            const x = i * dotSpacing + dotSpacing / 2;
+            const y = j * dotSpacing + dotSpacing / 2;
             
             ctx.beginPath();
             ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2);
@@ -123,7 +135,7 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
         return;
       }
       
-      // Draw the active visualization with black and white theme
+      // Draw the active visualization with better precision and alignment
       for (let i = 0; i < columns; i++) {
         // Map the column to a frequency bin
         const index = Math.floor(i * bufferLength / columns);
@@ -133,23 +145,22 @@ const DotMatrixVisualizer: React.FC<DotMatrixVisualizerProps> = ({ audioElement,
         const activeDots = Math.floor((value / 255) * rows);
         
         for (let j = 0; j < rows; j++) {
-          const x = i * dotSpacing;
-          const y = j * dotSpacing;
+            const x = i * dotSpacing + dotSpacing / 2;
+            const y = j * dotSpacing + dotSpacing / 2;
           
           // Check if this dot should be lit
           let opacity = 0.15;
-          let color = '#FFFFFF'; // White color for all dots
           
-          // Bottom to top visualization
+          // Bottom to top visualization with improved contrast
           const invertedJ = rows - j - 1;
           if (invertedJ < activeDots) {
-            // Intensity based on frequency value
-            opacity = 0.5 + (invertedJ / rows) * 0.5;
+            // Intensity based on frequency value and position
+            opacity = 0.5 + ((activeDots - invertedJ) / activeDots) * 0.5;
           }
           
           ctx.beginPath();
           ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2);
-          ctx.fillStyle = `${color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`;
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
           ctx.fill();
         }
       }

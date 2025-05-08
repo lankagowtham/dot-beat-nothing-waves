@@ -51,6 +51,38 @@
   }
 }
 
+@keyframes dotPulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+@keyframes matrixRain {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 .animate-fade-in {
   opacity: 0;
   transform: translateY(10px);
@@ -59,6 +91,14 @@
 
 .animate-pulse-glow {
   animation: pulseGlow 2s infinite;
+}
+
+.animate-dot-pulse {
+  animation: dotPulse 1.5s infinite;
+}
+
+.animate-matrix-rain {
+  animation: matrixRain 2s infinite;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -88,4 +128,12 @@
 
 .hover-scale:hover {
   transform: scale(1.05);
+}
+
+/* High-quality dot matrix renderer specific styles */
+canvas.dot-matrix {
+  image-rendering: pixelated; /* For sharp pixels in modern browsers */
+  image-rendering: crisp-edges; /* Firefox */
+  image-rendering: -moz-crisp-edges; /* Old Firefox */
+  image-rendering: -webkit-optimize-contrast; /* Webkit */
 }

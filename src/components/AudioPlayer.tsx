@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import DotMatrixVisualizer from './DotMatrixVisualizer';
 import AudioControls from './AudioControls';
@@ -24,7 +23,8 @@ const AudioPlayer: React.FC = () => {
     captureBackgroundAudio, 
     mediaInfo, 
     permissionStatus,
-    requestPermission 
+    requestPermission,
+    isCapturing
   } = useBackgroundAudio();
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -240,6 +240,11 @@ const AudioPlayer: React.FC = () => {
       easing: 'easeInOutBack'
     });
     
+    if (isCapturing) {
+      toast.info("Already trying to capture audio");
+      return;
+    }
+    
     // Check permission status first
     if (permissionStatus === 'prompt' || permissionStatus === 'unknown') {
       setShowPermissionPrompt(true);
@@ -277,31 +282,22 @@ const AudioPlayer: React.FC = () => {
           URL.revokeObjectURL(audioSrc);
         }
         
-        // Create a new MediaStream with the audio track
-        const newStream = new MediaStream(destination.stream.getAudioTracks());
-        
-        // Create a Blob from the MediaStream that can be used with audio element
-        const mediaRecorder = new MediaRecorder(newStream);
-        const chunks: BlobPart[] = [];
-        
-        mediaRecorder.ondataavailable = (e) => {
-          chunks.push(e.data);
-        };
-        
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          const newSrc = URL.createObjectURL(blob);
+        // Set source directly to the stream to avoid encoding issues
+        try {
+          audioRef.current.srcObject = stream;
+        } catch (err) {
+          // Fallback for browsers that don't support srcObject
+          const newSrc = URL.createObjectURL(stream);
           setAudioSrc(newSrc);
-          
-          // Start playing the captured audio
-          setIsPlaying(true);
-        };
+        }
         
-        // Start recording for a brief moment to get initial data
-        mediaRecorder.start();
-        setTimeout(() => {
-          mediaRecorder.stop();
-        }, 100);
+        // Start playing the captured audio
+        setIsPlaying(true);
+        audioRef.current.play().catch(err => {
+          console.error('Failed to play background audio:', err);
+          toast.error('Failed to play background audio. Please try again.');
+          setIsPlaying(false);
+        });
       }
       
       // Set default track info if not available from media session
@@ -341,7 +337,7 @@ const AudioPlayer: React.FC = () => {
     <div className="flex flex-col h-full w-full" ref={playerContainerRef}>
       {/* Permission prompt modal */}
       {showPermissionPrompt && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-black/700 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-lg max-w-md mx-4">
             <h3 className="text-xl font-bold mb-2">Microphone Permission Required</h3>
             <p className="text-gray-300 mb-4">

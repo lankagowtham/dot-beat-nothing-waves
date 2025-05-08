@@ -13,6 +13,7 @@ const useBackgroundAudio = () => {
   const [isAvailable, setIsAvailable] = useState(false);
   const [mediaInfo, setMediaInfo] = useState<MediaSessionInfo>({});
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'unknown'>('unknown');
+  const [isCapturing, setIsCapturing] = useState(false);
 
   useEffect(() => {
     // Check if MediaSession API is available
@@ -64,16 +65,33 @@ const useBackgroundAudio = () => {
       return null;
     }
 
-    // If permission status is unknown or prompt, request it first
-    if (permissionStatus !== 'granted') {
-      const permissionGranted = await requestPermission();
-      if (!permissionGranted) return null;
+    // Prevent multiple capture attempts
+    if (isCapturing) {
+      toast.info("Already trying to capture audio");
+      return null;
     }
 
+    setIsCapturing(true);
+
     try {
-      // Request audio capture permission
+      // If permission status is unknown or prompt, request it first
+      if (permissionStatus !== 'granted') {
+        const permissionGranted = await requestPermission();
+        if (!permissionGranted) {
+          setIsCapturing(false);
+          return null;
+        }
+      }
+
+      toast.info("Selecting audio source...");
+
+      // Request audio capture permission with improved options
       const stream = await navigator.mediaDevices.getDisplayMedia({ 
-        audio: true,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
         video: false
       });
       
@@ -82,21 +100,30 @@ const useBackgroundAudio = () => {
       
       if (!audioTrack) {
         toast.error("No audio track found");
+        setIsCapturing(false);
         return null;
       }
 
+      // Track will stop when the user stops sharing
+      audioTrack.onended = () => {
+        toast.info("Audio capture ended");
+        setIsCapturing(false);
+      };
+
       // Get current media session info if available
-      if (navigator.mediaSession.metadata) {
+      if (navigator.mediaSession && navigator.mediaSession.metadata) {
         const { title, artist, album, artwork } = navigator.mediaSession.metadata;
         setMediaInfo({ title, artist, album, artwork });
       }
       
       toast.success("Background audio captured successfully");
+      setIsCapturing(false);
       return stream;
       
     } catch (error) {
       console.error("Error capturing background audio:", error);
       toast.error("Failed to capture background audio");
+      setIsCapturing(false);
       return null;
     }
   };
@@ -106,7 +133,8 @@ const useBackgroundAudio = () => {
     captureBackgroundAudio, 
     mediaInfo, 
     permissionStatus, 
-    requestPermission 
+    requestPermission,
+    isCapturing
   };
 };
 
